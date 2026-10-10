@@ -1,0 +1,213 @@
+[
+ {
+  "id": 1,
+  "title": "EN · Snan dates",
+  "lang": "en",
+  "turns": [
+   "When is the first Amrut Snan, and where is the main ghat?"
+  ],
+  "expect": {
+   "tools": [
+    "search_kumbh_info"
+   ],
+   "contains_any": [
+    "2 August 2027",
+    "August 2",
+    "2 Aug"
+   ]
+  }
+ },
+ {
+  "id": 2,
+  "title": "HI · शाही स्नान",
+  "lang": "hi",
+  "turns": [
+   "शाही स्नान की तारीखें क्या हैं?"
+  ],
+  "expect": {
+   "tools": [
+    "search_kumbh_info"
+   ],
+   "contains_all": [
+    "2",
+    "31",
+    "11"
+   ],
+   "contains_none": [
+    "फ़रवरी",
+    "फरवरी",
+    "अक्टूबर",
+    "2028",
+    "शिवरात्रि"
+   ]
+  }
+ },
+ {
+  "id": 3,
+  "title": "MR · जवळचे हॉस्पिटल",
+  "lang": "mr",
+  "turns": [
+   "रामकुंड जवळ हॉस्पिटल कुठे आहे?"
+  ],
+  "expect": {
+   "tools": [
+    "find_nearby"
+   ]
+  }
+ },
+ {
+  "id": 4,
+  "title": "Hinglish · Directions (2 turns)",
+  "lang": "hi",
+  "turns": [
+   "Mujhe Ramkund jana hai, rasta batao",
+   "Main Nashik Road station par hoon"
+  ],
+  "expect": {
+   "tools": [
+    "get_directions"
+   ],
+   "contains_any": [
+    "12",
+    "किमी",
+    "km"
+   ],
+   "contains_none": [
+    "45",
+    "10 ghante"
+   ],
+   "first_turn_no_tools": [
+    "get_directions"
+   ]
+  }
+ },
+ {
+  "id": 5,
+  "title": "HI · EMERGENCY",
+  "lang": "hi",
+  "turns": [
+   "मदद करो! मेरी माँ बेहोश हो गई है, हम रामकुंड के पास हैं"
+  ],
+  "expect": {
+   "tools": [
+    "create_ticket"
+   ],
+   "contains_any": [
+    "112"
+   ]
+  }
+ },
+ {
+  "id": 6,
+  "title": "MR · हरवलेले मूल",
+  "lang": "mr",
+  "turns": [
+   "माझा मुलगा हरवला आहे, तो 8 वर्षांचा आहे, लाल शर्ट घातला आहे, कुशावर्त जवळ"
+  ],
+  "expect": {
+   "tools": [
+    "create_ticket"
+   ],
+   "contains_any": [
+    "112",
+    "1098"
+   ]
+  }
+ },
+ {
+  "id": 7,
+  "title": "EN · Travel from Indore",
+  "lang": "en",
+  "turns": [
+   "I am coming from Indore with my parents. How do we reach Nashik?"
+  ],
+  "expect": {
+   "tools": [
+    "travel_to_nashik"
+   ],
+   "contains_any": [
+    "416",
+    "train",
+    "Train"
+   ]
+  }
+ },
+ {
+  "id": 8,
+  "title": "Hinglish · Delhi se Nashik",
+  "lang": "hi",
+  "turns": [
+   "Delhi se Nashik kaise aana hai? Train best hai kya?"
+  ],
+  "expect": {
+   "tools": [
+    "travel_to_nashik"
+   ]
+  }
+ },
+ {
+  "id": 9,
+  "title": "MR · हवामान",
+  "lang": "mr",
+  "turns": [
+   "त्र्यंबकेश्वरला आज हवामान कसे आहे?"
+  ],
+  "expect": {
+   "tools": [
+    "get_weather"
+   ],
+   "contains_any": [
+    "°C"
+   ]
+  }
+ },
+ {
+  "id": 10,
+  "title": "EN · Helpline + parking",
+  "lang": "en",
+  "turns": [
+   "Is there a special Kumbh helpline number?",
+   "Can I drive my car to Ramkund on snan day?"
+  ],
+  "expect": {
+   "tools": [
+    "search_kumbh_info"
+   ],
+   "contains_any": [
+    "112",
+    "parking",
+    "shuttle"
+   ],
+   "lang_turn1": "en"
+  }
+ },
+ {
+  "id": 11,
+  "title": "Memory · returning caller (2 calls)",
+  "lang": "hi",
+  "caller_id": "c_demo_memory_caller",
+  "sessions": [
+   [
+    "Namaste, mera naam Sunita hai, main Pune se aayi hoon apni maa ke saath.",
+    "Ramkund ke paas ke toilets bahut gande hain, complaint likhiye."
+   ],
+   [
+    "Namaste, meri complaint ka kya hua?"
+   ]
+  ],
+  "turns": [
+   "(see sessions)"
+  ],
+  "expect": {
+   "tools": [
+    "remember_caller_details",
+    "create_ticket",
+    "get_my_tickets"
+   ],
+   "contains_any": [
+    "Sunita",
+    "KS-CP"
+   ]
+  }
+ }
+]

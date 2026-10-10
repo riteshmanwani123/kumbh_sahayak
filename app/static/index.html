@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kumbh Sahayak</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header>
+    <div class="brand"><div class="logo">कु</div>
+      <div><h1>Kumbh Sahayak · कुंभ सहायक</h1><small>Nashik–Trimbakeshwar Simhastha voice helpline (demo)</small></div>
+    </div>
+    <div><a class="sos" href="tel:112">Emergency 112</a><nav style="display:inline"><a href="/chat">Text mode</a></nav></div>
+  </header>
+  <div id="banner" class="banner hidden"></div>
+
+  <main>
+    <section class="panel">
+      <div class="callbox">
+        <button id="call" class="callbtn">📞 Call Kumbh Sahayak</button>
+        <div class="row">
+          <span class="pill" id="status">Idle</span>
+          <span class="pill lang" id="lang">Language: —</span>
+          <span><span class="dot" id="dot"></span> <small id="who">—</small></span>
+          <button class="ghost" id="mute" disabled>🎙️ Mute</button>
+        </div>
+        <input id="code" type="password" placeholder="Demo access code" style="display:none; padding:8px 12px; border-radius:8px; border:1px solid var(--line); background:var(--surface); color:var(--ink)" />
+        <small class="empty">Speak in Hindi, Marathi or English. Try: “Ramkund kaise jaun? Main Nashik Road station par hoon.”</small>
+      </div>
+      <h2>Live transcript</h2>
+      <div class="transcript" id="transcript"><div class="msg system">Press the button and allow the microphone.</div></div>
+    </section>
+
+    <aside class="panel">
+      <h2>Sahayak remembers</h2>
+      <div class="memory" id="memory"><div class="sub">Loading…</div></div>
+      <h2>Sent to your screen</h2>
+      <div class="cards" id="cards"><div class="empty">Map links, nearby places, tickets and sources will appear here.</div></div>
+    </aside>
+  </main>
+  <footer>Demo only · Facts from a verified knowledge base (as of Oct 2026) · Maps © OpenStreetMap contributors · Weather by Open-Meteo</footer>
+  <script type="module" src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kumbh Sahayak Text</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header>
+    <div class="brand"><div class="logo">कु</div>
+      <div><h1>Kumbh Sahayak · Text mode</h1><small>Same tools and prompt as voice; works without an API key (mock LLM)</small></div>
+    </div>
+    <div><a class="sos" href="tel:112">Emergency 112</a><nav style="display:inline"><a href="/">Voice mode</a></nav></div>
+  </header>
+  <div id="banner" class="banner"></div>
+  <main>
+    <section class="panel">
+      <div class="row" style="justify-content:space-between">
+        <span class="pill lang" id="lang">Language: —</span>
+        <label class="pill"><input type="checkbox" id="mock" /> Force mock LLM</label>
+        <button class="ghost" id="reset">New session</button>
+      </div>
+      <h2 style="margin-top:12px">Demo conversations</h2>
+      <div class="chips" id="chips"></div>
+      <div class="transcript" id="transcript"><div class="msg system">Type in Hindi, Marathi or English — or tap a demo.</div></div>
+      <form class="composer" id="form">
+        <input id="input" autocomplete="off" placeholder="e.g. रामकुंड के पास टॉयलेट कहाँ है?" />
+        <button>Send</button>
+      </form>
+    </section>
+    <aside class="panel">
+      <h2>Sahayak remembers</h2>
+      <div class="memory" id="memory"><div class="sub">Loading…</div></div>
+      <h2>Sent to your screen</h2>
+      <div class="cards" id="cards"><div class="empty">Tool results appear here.</div></div>
+    </aside>
+  </main>
+  <script type="module" src="/static/chat.js"></script>
+</body>
+</html>
