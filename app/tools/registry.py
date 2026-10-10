@@ -21,7 +21,8 @@ TOOLS = [
      "description": "Route between two places in Nashik/Trimbakeshwar. Returns distance, ETA, 3-5 steps and a map "
                     "link shown on the caller's screen. Use landmark names (e.g. 'Nashik Road station', 'Ramkund').",
      "parameters": {"type": "object", "properties": {
-         "from_place": {"type": "string", "description": "Caller's landmark or area"},
+         "from_place": {"type": "string", "description": "A named landmark/area the caller actually said "
+                        "(e.g. 'Nashik Road station'). Never 'current location' — if unknown, ask the caller first."},
          "to_place": {"type": "string", "description": "Destination landmark"},
          "mode": {"type": "string", "enum": ["walking", "driving"], "description": "Default walking near ghats"}},
          "required": ["from_place", "to_place"]}},

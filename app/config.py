@@ -7,15 +7,16 @@ from dotenv import load_dotenv
 ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT / ".env")
 
-DATA_DIR = Path(os.getenv("DATA_DIR", ROOT / "data"))
+ON_VERCEL = bool(os.getenv("VERCEL"))
+# Vercel functions can only write to /tmp (and it is wiped between instances) — durable data goes to Neon.
+DATA_DIR = Path(os.getenv("DATA_DIR") or ("/tmp/kumbh" if ON_VERCEL else ROOT / "data"))
 KNOWLEDGE_DIR = ROOT / "knowledge"
 LOG_DIR = DATA_DIR / "logs"
 for d in (DATA_DIR, LOG_DIR):
     d.mkdir(parents=True, exist_ok=True)
 
-INDEX_PATH = DATA_DIR / "kb_index.npz"
-TICKETS_DB = DATA_DIR / "tickets.sqlite"
-CACHE_DB = DATA_DIR / "cache.sqlite"
+# Committed to git so deployments don't need to rebuild it; rebuild with `python -m scripts.build_index`.
+INDEX_PATH = Path(os.getenv("INDEX_PATH") or ROOT / "knowledge" / "kb_index.npz")
 
 
 def openai_key() -> str:

@@ -33,7 +33,8 @@ A browser-based voice helpline for pilgrims that **remembers returning callers**
   │    get_weather ─────── Open-Meteo                                         │
   │  net.py: shared HTTP client, SQLite TTL cache, per-host rate limiting     │
   │    remember_caller_details / get_my_tickets ── memory.py                 │
-  │  memory.py: data/kumbh.sqlite — callers, sessions (+AI summary), messages │
+  │  memory.py + db.py: SQLite locally / Neon Postgres on Vercel — callers,   │
+  │             sessions (+AI summary), messages, tickets, map cache          │
   │             → "returning caller" brief injected into the next session    │
   │  session_log.py: data/logs/<date>_<session>.jsonl (secrets scrubbed)      │
   │  chat.py: text mode → OpenAI tool loop (key) or rule-based Mock LLM       │
@@ -44,7 +45,7 @@ A browser-based voice helpline for pilgrims that **remembers returning callers**
 
 ## Caller memory (recognises prior context)
 - Each browser gets an anonymous caller ID (kept in `localStorage`). There's no phone number in a browser demo, so this stands in for caller ID.
-- `data/kumbh.sqlite` stores, per caller, a **profile** (name, language, home city, group, where staying, notes), every **session** with a 2-sentence AI summary written at hang-up, every **message**, and linked **tickets**.
+- The database (`data/kumbh.sqlite` locally, Neon Postgres on Vercel) stores, per caller, a **profile** (name, language, home city, group, where staying, notes), every **session** with a 2-sentence AI summary written at hang-up, every **message**, and linked **tickets**.
 - When a call or chat starts, a short "returning caller" brief (profile, last 3 session summaries, open tickets) is added to the model's instructions. It greets them by name and follows up on anything unresolved. If they ask "what happened to my complaint?", it calls `get_my_tickets`.
 - The model saves details with `remember_caller_details` when a caller shares them. It never stores phone, ID or payment numbers.
 - The "Sahayak remembers" panel shows what is stored, and **Forget me** deletes it all (`DELETE /api/caller/{id}`).
@@ -54,7 +55,7 @@ A browser-based voice helpline for pilgrims that **remembers returning callers**
 
 ```bash
 cd ai-voice-assistant
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+python3 -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 cp .env.example .env        # then put your key in .env (see below)
 ```
 
@@ -127,13 +128,26 @@ Things to try live in voice: interrupt it mid-sentence, switch language mid-call
 | `DEMO_ACCESS_CODE` | empty | **set this before deploying publicly**; the voice token endpoint then requires it |
 | `HTTP_USER_AGENT` | generic | put a contact email in it (Nominatim usage policy) |
 
-## Deploying
-The app is a single container (`Dockerfile`), so any host with HTTPS works, for example Render, Railway, Fly.io or a VPS behind Caddy. Browsers only allow the microphone on **HTTPS** (or localhost).
+## Deploying to Vercel + Neon Postgres
+
+**Why Neon?** Vercel functions have no permanent disk. Caller memory, sessions, tickets and the map cache are stored in Neon Postgres when `DATABASE_URL` (or `POSTGRES_URL`) is set, and in local SQLite files otherwise. The schema is created automatically on first request.
+
+1. **Vercel:** sign in at vercel.com with GitHub. Click **Add New → Project** and **Import** `kumbh_sahayak`. Framework preset: **FastAPI** (auto-detected, entrypoint `app/main.py`). Don't deploy yet.
+2. **Neon:** in the project, go to **Storage → Create Database → Neon (Serverless Postgres)**, choose region **AWS ap-south-1 (Mumbai)**, then **Connect** it to the project for all environments. This adds `DATABASE_URL` automatically.
+3. **Environment variables** (Settings → Environment Variables):
+   - `OPENAI_API_KEY`: a **new** key (rotate the one used in development)
+   - `DEMO_ACCESS_CODE`: any passphrase; required for voice and real-model chat
+   - `HTTP_USER_AGENT`: `KumbhSahayakDemo/0.1 (contact: you@example.com)`
+4. **Deploy.** Open `https://<project>.vercel.app`, enter the access code and press **Call**.
+
+Notes: functions run in Mumbai (`vercel.json` → `bom1`). The search index `knowledge/kb_index.npz` is committed; re-run `python -m scripts.build_index` and push after editing `knowledge/`. Session logs appear in Vercel → **Logs**.
+
+### Docker (any other host)
 ```bash
 docker build -t kumbh-sahayak .
 docker run -p 8000:8000 --env-file .env kumbh-sahayak
 ```
-On a PaaS: set `OPENAI_API_KEY`, `DEMO_ACCESS_CODE` and `HTTP_USER_AGENT` as environment variables. The platform's `PORT` is honoured. Mount a volume at `/app/data` if you want tickets and logs to survive restarts.
+Set `DATABASE_URL` to use Postgres, or mount a volume at `/app/data` for SQLite.
 
 ## Known limits (demo)
 - No phone number: this is a browser call. For a real phone line, the next step is SIP → OpenAI Realtime (or Exotel/Plivo), which needs KYC.

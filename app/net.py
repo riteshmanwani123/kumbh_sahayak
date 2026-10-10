@@ -3,12 +3,12 @@ import asyncio
 import hashlib
 import json
 import math
-import sqlite3
 import time
 
 import httpx
 
 from . import config
+from .db import connect
 
 _client: httpx.AsyncClient | None = None
 _locks: dict[str, asyncio.Lock] = {}
@@ -42,25 +42,27 @@ async def polite(host: str, min_interval: float) -> None:
 
 
 # ---------- cache ----------
-def _db() -> sqlite3.Connection:
-    con = sqlite3.connect(config.CACHE_DB)
-    con.execute("CREATE TABLE IF NOT EXISTS cache (k TEXT PRIMARY KEY, v TEXT, exp REAL)")
-    return con
-
-
 def cache_get(ns: str, key) -> object | None:
     k = ns + ":" + hashlib.sha1(json.dumps(key, sort_keys=True).encode()).hexdigest()
-    with _db() as con:
-        row = con.execute("SELECT v, exp FROM cache WHERE k=?", (k,)).fetchone()
-    if row and row[1] > time.time():
-        return json.loads(row[0])
+    try:
+        with connect() as con:
+            row = con.execute("SELECT v, exp FROM cache WHERE k=?", (k,)).fetchone()
+    except Exception:
+        return None  # cache must never break a tool
+    if row and row["exp"] > time.time():
+        return json.loads(row["v"])
     return None
 
 
 def cache_set(ns: str, key, value, ttl: float) -> None:
     k = ns + ":" + hashlib.sha1(json.dumps(key, sort_keys=True).encode()).hexdigest()
-    with _db() as con:
-        con.execute("REPLACE INTO cache VALUES (?,?,?)", (k, json.dumps(value), time.time() + ttl))
+    try:
+        with connect() as con:
+            con.execute("INSERT INTO cache (k, v, exp) VALUES (?,?,?) "
+                        "ON CONFLICT (k) DO UPDATE SET v=excluded.v, exp=excluded.exp",
+                        (k, json.dumps(value), time.time() + ttl))
+    except Exception:
+        pass
 
 
 # ---------- geo helpers ----------

@@ -6,6 +6,7 @@ const safeUrl = (u) => (/^(https?:|tel:)/.test(u || "") ? u : "#");
 export function renderCard(name, args, res) {
   const el = document.createElement("div");
   el.className = "card";
+  if (res?.ok === false && /not a specific landmark/.test(res.error || "")) return null; // model will just ask
   if (!res || res.ok === false) {
     el.classList.add("warn");
     el.innerHTML = `<h3>⚠️ ${esc(name)} unavailable</h3><div class="sub">${esc(res?.error || "error")}</div>`;
@@ -78,8 +79,10 @@ export function renderCard(name, args, res) {
 }
 
 export function addCard(container, name, args, res) {
+  const card = renderCard(name, args, res);
+  if (!card) return;
   container.querySelector(".empty")?.remove();
-  container.prepend(renderCard(name, args, res));
+  container.prepend(card);
 }
 
 const MR = /(आहे|आहेत|कुठे|मला|कसे|कसा|काय|कधी|पाहिजे|जवळ|नाही|सांगा|किती|\b(aahe|kuthe|mala|kasa|pahije|sanga)\b)/i;

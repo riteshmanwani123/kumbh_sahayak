@@ -3,7 +3,7 @@ import asyncio
 import hashlib
 import secrets
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -34,7 +34,8 @@ def chat_page():
 
 @app.get("/api/status")
 def status():
-    return {"key_configured": config.has_key(), "kb_index": index_status(),
+    from .db import backend_name
+    return {"key_configured": config.has_key(), "kb_index": index_status(), "storage": backend_name(),
             "voice_ready": config.has_key(), "realtime_model": config.REALTIME_MODEL,
             "text_mode": "openai" if config.has_key() else "mock", "access_code_required": bool(config.DEMO_ACCESS_CODE)}
 
@@ -47,8 +48,7 @@ class TokenReq(BaseModel):
 
 @app.post("/api/realtime/token")
 async def realtime_token(req: TokenReq, request: Request):
-    if config.DEMO_ACCESS_CODE and not secrets.compare_digest(req.access_code, config.DEMO_ACCESS_CODE):
-        raise HTTPException(401, "Wrong access code")
+    _check_code(req.access_code)
     if not config.has_key():
         raise HTTPException(503, "Voice mode needs OPENAI_API_KEY in .env. Text mode works at /chat.")
     ip = request.client.host if request.client else ""
@@ -59,8 +59,6 @@ async def realtime_token(req: TokenReq, request: Request):
         returning = await asyncio.to_thread(memory.start_session, caller_id, req.session_id, "voice")
         context = await asyncio.to_thread(memory.build_context, caller_id, req.session_id)
         name = (await asyncio.to_thread(memory.get_profile, caller_id) or {}).get("name")
-        # Catch up summaries for earlier sessions whose end-beacon never arrived (used from the next call on).
-        asyncio.get_running_loop().run_in_executor(None, memory.summarize_pending, caller_id, req.session_id)
     try:
         tok = await mint_client_secret(safety_id, context)
     except RuntimeError as e:
@@ -86,15 +84,24 @@ async def tool_relay(req: ToolReq):
     return res
 
 
+def _check_code(code: str) -> None:
+    """When DEMO_ACCESS_CODE is set (public deployment), every endpoint that spends OpenAI credit requires it."""
+    if config.DEMO_ACCESS_CODE and not secrets.compare_digest(code or "", config.DEMO_ACCESS_CODE):
+        raise HTTPException(401, "Wrong or missing access code")
+
+
 class ChatReq(BaseModel):
     session_id: str = Field(default_factory=lambda: secrets.token_hex(6))
     caller_id: str = ""
     message: str
     mock: bool = False
+    access_code: str = ""
 
 
 @app.post("/api/chat")
 async def chat_api(req: ChatReq):
+    if not req.mock:
+        _check_code(req.access_code)
     if not req.message.strip():
         raise HTTPException(400, "empty message")
     caller_id = req.caller_id if memory.valid_id(req.caller_id) else ""
@@ -107,10 +114,15 @@ class EndReq(BaseModel):
 
 
 @app.post("/api/session/end")
-async def session_end(req: EndReq, bg: BackgroundTasks):
-    """Called on hang-up / page close: mark the session ended and summarise it for next time."""
+async def session_end(req: EndReq):
+    """Called on hang-up / page close (sendBeacon, so the caller never waits): mark the session ended and
+    summarise it for next time. Done before responding because serverless platforms may freeze the function
+    right after the response is sent."""
     await asyncio.to_thread(memory.end_session, req.session_id)
-    bg.add_task(memory.summarize_session, req.session_id)
+    try:
+        await asyncio.wait_for(asyncio.to_thread(memory.summarize_session, req.session_id), 25)
+    except Exception:
+        pass  # build_context falls back to recent raw lines if no summary exists
     log_event(req.session_id, "session_end")
     return {"ok": True}
 

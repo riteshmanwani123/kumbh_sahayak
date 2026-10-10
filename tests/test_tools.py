@@ -1,5 +1,4 @@
 import json
-import sqlite3
 
 import httpx
 import pytest
@@ -153,7 +152,7 @@ def test_ticket_create_and_list(tmp_path):
     r3 = tickets.create_ticket("weird", "dirty toilets", db_path=db)
     assert r3["type"] == "complaint"
     rows = tickets.list_tickets(db_path=db)
-    assert len(rows) == 3 and sqlite3.connect(db).execute("select count(*) from tickets").fetchone()[0] == 3
+    assert len(rows) == 3 and {r["type"] for r in rows} == {"emergency", "lost_found", "complaint"}
 
 
 # ---------- knowledge base ----------

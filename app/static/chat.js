@@ -8,6 +8,12 @@ const memoryEl = $("memory");
 const refreshMemory = () => renderMemory(memoryEl, callerId, () => { callerId = resetCallerId(); refreshMemory(); });
 function rotateSession() { if (used) endSession(sessionId); sessionId = newId(); used = false; setTimeout(refreshMemory, 4000); }
 
+function rememberCode() {
+  const v = $("code").value || "";
+  try { if (v) localStorage.setItem("kumbh_code", v); } catch {}
+  return v;
+}
+
 function newId() { return "t" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 function addMsg(role, text, meta = "") {
   transcript.querySelector(".msg.system:only-child")?.remove();
@@ -28,7 +34,8 @@ async function send(text) {
   const t0 = performance.now();
   try {
     const r = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ session_id: sessionId, caller_id: callerId, message: text, mock: $("mock").checked }) });
+      body: JSON.stringify({ session_id: sessionId, caller_id: callerId, message: text, mock: $("mock").checked,
+        access_code: rememberCode() }) });
     used = true;
     const d = await r.json();
     wait.remove();
@@ -36,6 +43,7 @@ async function send(text) {
       addMsg("system", `🔧 ${c.name} · ${c.result?._ms ?? "?"} ms`);
       addCard(cards, c.name, c.args, c.result);
     });
+    if (r.status === 401) { addMsg("system", "🔒 Enter the access code (top right) to chat."); busy = false; return; }
     addMsg("assistant", d.reply || d.detail || "(no reply)", `${d.mode || ""} · ${Math.round(performance.now() - t0)} ms`);
     if (d.language) langEl.textContent = "Language: " + LANG_LABEL[d.language];
     if ((d.tool_calls || []).some((c) => ["remember_caller_details", "create_ticket"].includes(c.name))) refreshMemory();
@@ -53,6 +61,10 @@ refreshMemory();
 (async () => {
   try {
     const s = await (await fetch("/api/status")).json();
+    if (s.access_code_required) {
+      $("code").style.display = "inline-block";
+      try { $("code").value = localStorage.getItem("kumbh_code") || ""; } catch {}
+    }
     banner.textContent = s.key_configured
       ? `OpenAI key configured · text model replies (${s.realtime_model} for voice) · KB index: ${s.kb_index}`
       : "No OpenAI key yet · running the mock LLM (rule-based) with the real tools: maps, weather, tickets, KB keyword search.";

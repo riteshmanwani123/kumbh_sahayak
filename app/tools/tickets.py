@@ -1,9 +1,8 @@
 """create_ticket: lost & found / complaint / emergency tickets in SQLite."""
 import datetime as dt
 import secrets
-import sqlite3
 
-from .. import config
+from ..db import connect
 
 TYPES = {"lost_found", "complaint", "emergency"}
 TYPE_ALIASES = {"lost": "lost_found", "lost_person": "lost_found", "lost_and_found": "lost_found",
@@ -19,15 +18,9 @@ EMERGENCY_CONTACTS = [
 LOST_CONTACTS = [{"name": "Emergency", "number": "112"}, {"name": "Childline (lost child)", "number": "1098"}]
 
 
-def _db(path=None) -> sqlite3.Connection:
-    con = sqlite3.connect(path or config.TICKETS_DB)
-    con.execute("""CREATE TABLE IF NOT EXISTS tickets (
-        id TEXT PRIMARY KEY, type TEXT, details TEXT, caller_language TEXT,
-        session_id TEXT, created_at TEXT, status TEXT)""")
-    cols = {r[1] for r in con.execute("PRAGMA table_info(tickets)")}
-    if "caller_id" not in cols:
-        con.execute("ALTER TABLE tickets ADD COLUMN caller_id TEXT")
-    return con
+def _db(path=None):
+    """Tickets share the main database (SQLite locally, Neon Postgres on Vercel); `path` is for tests."""
+    return connect(path)
 
 
 def create_ticket(type: str, details: str, caller_language: str = "en", session_id: str = "", db_path=None,
@@ -56,19 +49,19 @@ def list_tickets(limit: int = 50, db_path=None) -> list[dict]:
     with _db(db_path) as con:
         rows = con.execute("SELECT id,type,details,caller_language,created_at,status FROM tickets "
                            "ORDER BY created_at DESC LIMIT ?", (limit,)).fetchall()
-    return [dict(zip(("id", "type", "details", "caller_language", "created_at", "status"), r)) for r in rows]
+    return list(rows)
 
 
 def lookup_tickets(caller_id: str | None, ticket_id: str = "", db_path=None) -> dict:
     """Tickets for this caller (or one ticket by ID that belongs to them)."""
     if not caller_id:
         return {"ok": True, "tickets": [], "note": "Caller not identified; ask them to read out the ticket ID."}
-    q = "SELECT id,type,details,status,created_at FROM tickets WHERE caller_id=?"
+    q = "SELECT id AS ticket_id,type,details,status,created_at FROM tickets WHERE caller_id=?"
     args: list = [caller_id]
     if ticket_id:
         q += " AND upper(id)=upper(?)"
         args.append(ticket_id.strip())
     with _db(db_path) as con:
         rows = con.execute(q + " ORDER BY created_at DESC LIMIT 5", args).fetchall()
-    return {"ok": True, "tickets": [dict(zip(("ticket_id", "type", "details", "status", "created_at"), r)) for r in rows],
+    return {"ok": True, "tickets": list(rows),
             "note": "Demo tickets are logged locally; no officer has updated them. For urgent help: 112."}

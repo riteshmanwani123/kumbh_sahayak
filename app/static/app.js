@@ -38,7 +38,10 @@ async function init() {
       banner.classList.remove("hidden");
       callBtn.disabled = true;
     }
-    if (s.access_code_required) codeEl.style.display = "block";
+    if (s.access_code_required) {
+      codeEl.style.display = "block";
+      try { codeEl.value = localStorage.getItem("kumbh_code") || ""; } catch {}
+    }
   } catch { /* server offline */ }
 }
 
@@ -49,6 +52,7 @@ async function start() {
   try {
     const tr = await fetch("/api/realtime/token", { method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ session_id: sessionId, caller_id: callerId, access_code: codeEl.value || "" }) });
+    try { if (codeEl.value) localStorage.setItem("kumbh_code", codeEl.value); } catch {}
     if (!tr.ok) throw new Error((await tr.json()).detail || "Token request failed");
     const tok = await tr.json();
 

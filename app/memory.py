@@ -8,11 +8,10 @@ session with an AI summary, every message, and link their tickets. At the start 
 import datetime as dt
 import json
 import re
-import sqlite3
 
 from . import config
+from .db import connect
 
-DB = config.DATA_DIR / "kumbh.sqlite"
 _ID = re.compile(r"^[A-Za-z0-9_\-]{6,64}$")
 PROFILE_FIELDS = ("name", "preferred_language", "home_city", "group_info", "stay_location", "notes")
 
@@ -25,24 +24,7 @@ def _now() -> str:
     return dt.datetime.now().isoformat(timespec="seconds")
 
 
-def db(path=None) -> sqlite3.Connection:
-    con = sqlite3.connect(path or DB, timeout=10)
-    con.row_factory = sqlite3.Row
-    con.executescript("""
-    PRAGMA journal_mode=WAL;
-    CREATE TABLE IF NOT EXISTS callers (
-        caller_id TEXT PRIMARY KEY, name TEXT, preferred_language TEXT, home_city TEXT,
-        group_info TEXT, stay_location TEXT, notes TEXT,
-        created_at TEXT, last_seen TEXT, visit_count INTEGER DEFAULT 0);
-    CREATE TABLE IF NOT EXISTS sessions (
-        session_id TEXT PRIMARY KEY, caller_id TEXT, mode TEXT, started_at TEXT, ended_at TEXT,
-        language TEXT, summary TEXT);
-    CREATE TABLE IF NOT EXISTS messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, session_id TEXT, caller_id TEXT, role TEXT, text TEXT, ts TEXT);
-    CREATE INDEX IF NOT EXISTS idx_msg_session ON messages(session_id);
-    CREATE INDEX IF NOT EXISTS idx_sess_caller ON sessions(caller_id, started_at);
-    """)
-    return con
+db = connect  # `with db() as con:` — SQLite locally, Neon Postgres on Vercel
 
 
 # ---------------- sessions & messages ----------------
@@ -61,8 +43,8 @@ def start_session(caller_id: str, session_id: str, mode: str) -> bool:
         else:
             con.execute("INSERT INTO callers (caller_id, created_at, last_seen, visit_count) VALUES (?,?,?,1)",
                         (caller_id, _now(), _now()))
-        con.execute("INSERT INTO sessions (session_id, caller_id, mode, started_at) VALUES (?,?,?,?)",
-                    (session_id, caller_id, mode, _now()))
+        con.execute("INSERT INTO sessions (session_id, caller_id, mode, started_at) VALUES (?,?,?,?) "
+                    "ON CONFLICT (session_id) DO NOTHING", (session_id, caller_id, mode, _now()))
     return bool(row)
 
 
@@ -92,7 +74,7 @@ def session_messages(session_id: str, limit: int = 200) -> list[dict]:
     with db() as con:
         rows = con.execute("SELECT role, text, ts FROM messages WHERE session_id=? ORDER BY id LIMIT ?",
                            (session_id, limit)).fetchall()
-    return [dict(r) for r in rows]
+    return list(rows)
 
 
 def end_session(session_id: str) -> None:
@@ -104,7 +86,7 @@ def end_session(session_id: str) -> None:
 def get_profile(caller_id: str) -> dict | None:
     with db() as con:
         r = con.execute("SELECT * FROM callers WHERE caller_id=?", (caller_id,)).fetchone()
-    return dict(r) if r else None
+    return r or None
 
 
 def update_profile(caller_id: str, **fields) -> dict:
@@ -124,14 +106,13 @@ def update_profile(caller_id: str, **fields) -> dict:
 
 def forget(caller_id: str) -> dict:
     """Delete everything stored about a caller (profile, sessions, messages, tickets)."""
-    from .tools.tickets import _db as tickets_db
     with db() as con:
-        sids = [r["session_id"] for r in con.execute("SELECT session_id FROM sessions WHERE caller_id=?", (caller_id,))]
+        sids = [r["session_id"] for r in
+                con.execute("SELECT session_id FROM sessions WHERE caller_id=?", (caller_id,)).fetchall()]
         n = con.execute("DELETE FROM messages WHERE caller_id=?", (caller_id,)).rowcount
         con.execute("DELETE FROM sessions WHERE caller_id=?", (caller_id,))
         con.execute("DELETE FROM callers WHERE caller_id=?", (caller_id,))
-    with tickets_db() as tcon:
-        tcon.execute("DELETE FROM tickets WHERE caller_id=?", (caller_id,))
+        con.execute("DELETE FROM tickets WHERE caller_id=?", (caller_id,))
     for sid in sids:
         for f in config.LOG_DIR.glob(f"*_{sid}.jsonl"):
             f.unlink(missing_ok=True)
@@ -184,11 +165,10 @@ def summarize_pending(caller_id: str, exclude_session: str = "") -> None:
 
 
 def caller_tickets(caller_id: str, limit: int = 5) -> list[dict]:
-    from .tools.tickets import _db as tickets_db
-    with tickets_db() as con:
-        rows = con.execute("SELECT id, type, details, status, created_at FROM tickets WHERE caller_id=? "
-                           "ORDER BY created_at DESC LIMIT ?", (caller_id, limit)).fetchall()
-    return [dict(zip(("ticket_id", "type", "details", "status", "created_at"), r)) for r in rows]
+    with db() as con:
+        rows = con.execute("SELECT id AS ticket_id, type, details, status, created_at FROM tickets "
+                           "WHERE caller_id=? ORDER BY created_at DESC LIMIT ?", (caller_id, limit)).fetchall()
+    return list(rows)
 
 
 def build_context(caller_id: str, current_session: str = "") -> str:

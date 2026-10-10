@@ -1,0 +1,9 @@
+.venv
+data
+tests
+scripts/warm_cache.py
+scripts/run_demo_conversations.py
+scripts/chat_cli.py
+Dockerfile
+.dockerignore
+run.sh

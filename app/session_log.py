@@ -1,4 +1,4 @@
-"""Per-session JSONL logs (transcripts + tool calls) in data/logs. Secrets are scrubbed defensively."""
+"""Per-session JSONL logs (transcripts + tool calls) in data/logs, or stdout on Vercel. Secrets are scrubbed."""
 import datetime as dt
 import json
 import re
@@ -17,5 +17,8 @@ def _scrub(obj):
 def log_event(session_id: str, kind: str, **data) -> None:
     sid = _SAFE_ID.sub("", session_id or "nosession")[:64] or "nosession"
     rec = {"ts": dt.datetime.now().isoformat(timespec="milliseconds"), "kind": kind, **_scrub(data)}
+    if config.ON_VERCEL:  # read-only disk: logs go to the Vercel dashboard (Logs tab)
+        print(json.dumps({"session": sid, **rec}, ensure_ascii=False), flush=True)
+        return
     with open(config.LOG_DIR / f"{dt.date.today():%Y%m%d}_{sid}.jsonl", "a", encoding="utf-8") as f:
         f.write(json.dumps(rec, ensure_ascii=False) + "\n")

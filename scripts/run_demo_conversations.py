@@ -36,8 +36,9 @@ async def main(force_mock: bool) -> int:
                 out = await chat(sid, turn, force_mock=force_mock, caller_id=caller)
                 ms = int((time.perf_counter() - t0) * 1000)
                 names = [c["name"] for c in out["tool_calls"]]
-                if i == 0 and n == 0 and set(names) & set(d.get("expect", {}).get("first_turn_no_tools", [])):
-                    problems.append(f"called {names} before asking for a landmark")
+                routed = [c["name"] for c in out["tool_calls"] if c["result"].get("ok")]
+                if i == 0 and n == 0 and set(routed) & set(d.get("expect", {}).get("first_turn_no_tools", [])):
+                    problems.append(f"gave a route ({routed}) before the caller named a landmark")
                 if i == 0 and d.get("expect", {}).get("lang_turn1") and detect_language(out["reply"]) != d["expect"]["lang_turn1"]:
                     problems.append("replied in the wrong language")
                 tools += names

@@ -67,8 +67,10 @@ def fake_http():
     def install(overrides=None, clear=True):
         net.set_client(httpx.AsyncClient(transport=httpx.MockTransport(make_handler(overrides))))
         # Fresh cache per test
-        if clear and Path(os.environ["DATA_DIR"], "cache.sqlite").exists():
-            Path(os.environ["DATA_DIR"], "cache.sqlite").unlink()
+        if clear:
+            from app.db import connect
+            with connect() as con:
+                con.execute("DELETE FROM cache")
         net._last_call.clear()
 
     install()
