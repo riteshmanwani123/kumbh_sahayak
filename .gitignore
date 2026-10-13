@@ -9,3 +9,4 @@ data/
 *.sqlite
 *.sqlite-*
 data/*.npz
+dist/

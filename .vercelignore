@@ -7,3 +7,4 @@ scripts/chat_cli.py
 Dockerfile
 .dockerignore
 run.sh
+android

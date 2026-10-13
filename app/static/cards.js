@@ -115,7 +115,9 @@ export function endSession(sessionId) {
 export async function renderMemory(el, callerId, onForget) {
   let d = { known: false };
   try { d = await (await fetch("/api/caller/" + callerId)).json(); } catch {}
-  if (!d.known || (!d.sessions?.length && !d.profile?.name)) {
+  const hasSomething = d.known && (d.profile?.name || d.profile?.home_city || (d.tickets || []).length
+    || (d.sessions || []).some((s) => s.summary));
+  if (!hasSomething) {
     el.innerHTML = `<div class="sub">New caller — nothing remembered yet. Share your name or city and I'll remember it next time.</div>`;
     return d;
   }

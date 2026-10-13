@@ -131,9 +131,14 @@ def summarize_session(session_id: str) -> str | None:
         r = con.execute("SELECT summary FROM sessions WHERE session_id=?", (session_id,)).fetchone()
     if not r or r["summary"]:
         return r["summary"] if r else None
+    msgs = session_messages(session_id)
+    if not any(m["role"] == "user" for m in msgs):
+        # Caller never spoke (e.g. hung up after the greeting): nothing to remember, and summarising a
+        # greeting-only transcript makes models invent details. Mark as done with an empty summary.
+        with db() as con:
+            con.execute("UPDATE sessions SET summary=? WHERE session_id=?", ("", session_id))
+        return ""
     text = _transcript(session_id)
-    if not text:
-        return None
     summary = None
     if config.has_key():
         try:
@@ -143,7 +148,10 @@ def summarize_session(session_id: str) -> str | None:
                 messages=[{"role": "system", "content":
                            "Summarise this Kumbh Mela helpline conversation in at most 2 short English sentences "
                            "for the next agent: what the caller needed, key facts they shared (name, city, group, "
-                           "where staying), tickets created (with IDs), and anything unresolved. No greetings."},
+                           "where staying), tickets created (with IDs), and anything unresolved. STRICT: include "
+                           "only facts the caller explicitly stated in the transcript. Never say they shared "
+                           "something unless the actual value appears (e.g. write the name itself). If nothing "
+                           "of note, write 'Brief call, no details shared.'"},
                           {"role": "user", "content": text}])
             summary = (resp.choices[0].message.content or "").strip()[:500]
         except Exception:
@@ -177,8 +185,10 @@ def build_context(caller_id: str, current_session: str = "") -> str:
     if not p:
         return ""
     with db() as con:
-        prev = con.execute("SELECT session_id, mode, started_at, summary FROM sessions WHERE caller_id=? "
-                           "AND session_id!=? ORDER BY started_at DESC LIMIT 3",
+        # Only sessions where the caller actually said something.
+        prev = con.execute("SELECT s.session_id, s.mode, s.started_at, s.summary FROM sessions s WHERE s.caller_id=? "
+                           "AND s.session_id!=? AND EXISTS (SELECT 1 FROM messages m WHERE m.session_id=s.session_id "
+                           "AND m.role='user') ORDER BY s.started_at DESC LIMIT 3",
                            (caller_id, current_session)).fetchall()
     tickets = caller_tickets(caller_id)
     if not prev and not any(p.get(k) for k in PROFILE_FIELDS) and not tickets:

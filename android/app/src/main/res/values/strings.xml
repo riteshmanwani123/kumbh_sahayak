@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">Kumbh Sahayak</string>
+    <string name="mic_needed">Microphone permission is needed to talk to Kumbh Sahayak. You can still use text chat.</string>
+</resources>

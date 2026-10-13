@@ -58,3 +58,12 @@ def test_api_caller_endpoints_and_chat_memory(fake_http):
     assert client.delete(f"/api/caller/{cid}").json()["ok"]
     assert client.get(f"/api/caller/{cid}").json() == {"known": False}
     assert client.get("/api/caller/bad!id").status_code in (400, 404)
+
+
+def test_silent_session_is_not_summarised_or_remembered():
+    cid = "c_testcaller0005"
+    memory.start_session(cid, "s_silent", "voice")
+    memory.add_message("s_silent", "assistant", "Namaskar! Kumbh Sahayak mein aapka swagat hai.")
+    assert memory.summarize_session("s_silent") == ""
+    memory.start_session(cid, "s_next", "voice")
+    assert memory.build_context(cid, "s_next") == ""   # nothing invented about a caller who never spoke
